@@ -1,6 +1,6 @@
 # Enhanced Transform Editor
 
-Unity Editor Extension that enhance transform editor that support math functions, variables, constants and custom functions.
+Unity Editor Extension enhances the transform editor that supports math functions, variables, constants, and custom functions.
 
 ## Features
 
