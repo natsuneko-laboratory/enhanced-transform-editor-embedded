@@ -3,11 +3,14 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  *------------------------------------------------------------------------------------------*/
 
+#if UNITY_EDITOR
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
+using NatsunekoLaboratory.EnhancedTransformEditor.Extensions;
 using NatsunekoLaboratory.EnhancedTransformEditor.Reflection;
 
 using UnityEditor;
@@ -21,6 +24,7 @@ namespace NatsunekoLaboratory.EnhancedTransformEditor
     public class TransformExtendedInspector : Editor
     {
         private string _errors;
+        private IsolatedTransform[] _immutableTransforms;
         private SerializedProperty _position;
 
         private Vector3<string> _positionExpression;
@@ -198,52 +202,41 @@ namespace NatsunekoLaboratory.EnhancedTransformEditor
 
         private void ApplyTransform()
         {
-            var transforms = targets.Cast<Transform>().ToList();
-            var targetsPosX = transforms.Select(w => w.position.x).ToArray();
-            var targetsPosY = transforms.Select(w => w.position.y).ToArray();
-            var targetsPosZ = transforms.Select(w => w.position.z).ToArray();
-            var targetsRotX = transforms.Select(w => w.rotation.eulerAngles.x).ToArray();
-            var targetsRotY = transforms.Select(w => w.rotation.eulerAngles.y).ToArray();
-            var targetsRotZ = transforms.Select(w => w.rotation.eulerAngles.z).ToArray();
-            var targetsSclX = transforms.Select(w => w.localScale.x).ToArray();
-            var targetsSclY = transforms.Select(w => w.localScale.y).ToArray();
-            var targetsSclZ = transforms.Select(w => w.localScale.z).ToArray();
+            Undo.RecordObjects(targets, "Update Transforms");
 
-            foreach (var (transform, index) in transforms.Select((w, i) => (w, i)))
+            _immutableTransforms = targets.Cast<Transform>().OrderBy(w => w.GetSiblingIndex()).Select(w => w.Clone()).ToArray();
+
+            foreach (var (transform, index) in targets.Cast<Transform>().OrderBy(w => w.GetSiblingIndex()).Select((w, i) => (w, i)))
             {
-                transform.position = new Vector3
+                transform.localPosition = new Vector3
                 {
-                    x = ApplyTransform(_positionExpression.X, transform.position.x, index, targetsPosX, transforms.ToArray(), "x"),
-                    y = ApplyTransform(_positionExpression.Y, transform.position.y, index, targetsPosY, transforms.ToArray(), "y"),
-                    z = ApplyTransform(_positionExpression.Z, transform.position.z, index, targetsPosZ, transforms.ToArray(), "z")
+                    x = ApplyTransform(_positionExpression.X, transform.localPosition.x, index, "x"),
+                    y = ApplyTransform(_positionExpression.Y, transform.localPosition.y, index, "y"),
+                    z = ApplyTransform(_positionExpression.Z, transform.localPosition.z, index, "z")
                 };
 
-                var x = ApplyTransform(_rotationExpression.X, transform.rotation.eulerAngles.x, index, targetsRotX, transforms.ToArray(), "x");
-                var y = ApplyTransform(_rotationExpression.Y, transform.rotation.eulerAngles.y, index, targetsRotY, transforms.ToArray(), "y");
-                var z = ApplyTransform(_rotationExpression.Z, transform.rotation.eulerAngles.z, index, targetsRotZ, transforms.ToArray(), "z");
-                transform.rotation = Quaternion.Euler(x, y, z);
+                var x = ApplyTransform(_rotationExpression.X, transform.localRotation.eulerAngles.x, index, "x");
+                var y = ApplyTransform(_rotationExpression.Y, transform.localRotation.eulerAngles.y, index, "y");
+                var z = ApplyTransform(_rotationExpression.Z, transform.localRotation.eulerAngles.z, index, "z");
+                transform.localRotation = Quaternion.Euler(x, y, z);
 
                 transform.localScale = new Vector3
                 {
-                    x = ApplyTransform(_scaleExpression.X, transform.localScale.x, index, targetsSclX, transforms.ToArray(), "x"),
-                    y = ApplyTransform(_scaleExpression.Y, transform.localScale.y, index, targetsSclY, transforms.ToArray(), "y"),
-                    z = ApplyTransform(_scaleExpression.Z, transform.localScale.z, index, targetsSclZ, transforms.ToArray(), "z")
+                    x = ApplyTransform(_scaleExpression.X, transform.localScale.x, index, "x"),
+                    y = ApplyTransform(_scaleExpression.Y, transform.localScale.y, index, "y"),
+                    z = ApplyTransform(_scaleExpression.Z, transform.localScale.z, index, "z")
                 };
-
-                Debug.Log(transform.localPosition);
 
                 EditorUtility.SetDirty(transform);
             }
         }
 
-        private static float ApplyTransform(string expression, float @this, int index, float[] targets, Transform[] objects, string attribute)
+        private float ApplyTransform(string expression, float @this, int index, string attribute)
         {
             var variables = new List<(string, Union<float, object>)>
             {
                 ("this", @this),
                 ("index", index),
-                ("__targets", targets),
-                ("__objects", objects),
                 ("__attribute", attribute)
             };
 
@@ -253,7 +246,7 @@ namespace NatsunekoLaboratory.EnhancedTransformEditor
                 new ExpressionEvaluator.CustomFunction("space_between", SpaceBetweenImpl),
 
                 // center(0, index) => center(origin, index)
-                new ExpressionEvaluator.CustomFunction("center", (args, vars) => 0.0f)
+                new ExpressionEvaluator.CustomFunction("center", CenterImpl)
             };
 
             return ExpressionEvaluator.Evaluate(expression, variables, functions);
@@ -277,51 +270,79 @@ namespace NatsunekoLaboratory.EnhancedTransformEditor
             }
         }
 
-        private static float SpaceBetweenImpl(float[] arguments, List<(string, Union<float, object>)> variables)
+        private float SpaceBetweenImpl(float[] arguments, List<(string, Union<float, object>)> variables)
         {
-            var space = arguments[0];
-            var index = arguments[1];
-            var targetTransforms = variables.First(w => w.Item1 == "__objects").Item2.AsT2 as Transform[];
-            var attribute = variables.First(w => w.Item1 == "__attribute").Item2.AsT2 as string;
-            var @default = variables.First(w => w.Item1 == "this").Item2.AsT1;
-            if (targetTransforms == null)
-                return @default;
-
-            if (targetTransforms.Any(w => w.gameObject.GetComponent<MeshFilter>() == null)) 
-                return @default;
-
-            var meshes = targetTransforms.Select(w => w.gameObject.GetComponent<MeshFilter>()).ToList();
-            var offset = 0.0f;
-            for (var i = 0; i < index; i++)
+            void CleanupComponents(Transform transform)
             {
-                var scale = GetAttributedValue(targetTransforms[i].localScale, attribute);
-                if (i == 0)
-                {
-                    offset = GetAttributedValue((meshes[i].mesh.bounds.size - meshes[i].mesh.bounds.center) * scale, attribute) + space;
-                    continue;
-                }
-
-                Debug.Log($"{targetTransforms[i]}: {GetAttributedValue(meshes[i].mesh.bounds.size * scale, attribute)}");
-                offset += GetAttributedValue(meshes[i].mesh.bounds.size * scale, attribute) + space;
-                
-                // has next GameObject has scale?
-                if (meshes.Count - 1 >= i + 1 && Mathf.Abs(GetAttributedValue(targetTransforms[i + 1].localScale, attribute) - 1) > Mathf.Epsilon)
-                {
-                    var nextScale = GetAttributedValue(targetTransforms[i + 1].localScale, attribute);
-                    var nextBound = GetAttributedValue(meshes[i + 1].mesh.bounds.size, attribute);
-                    var shimOffset = ((nextBound * nextScale) - nextBound) / 2;
-
-                    Debug.Log($"NextBound: {nextBound}, NextScale: {nextScale}, Shims: {(nextBound * nextScale) - nextBound}");
-                    offset += shimOffset;
-                }
-                else if (Mathf.Abs(scale - 1) > Mathf.Epsilon)
-                {
-                    var bound = GetAttributedValue(meshes[i].mesh.bounds.size, attribute);
-                    offset -= ((bound * scale) - bound) / 2;
-                }
+                foreach (var obj in transform.gameObject.GetComponents<CalculateBounds>())
+                    DestroyImmediate(obj);
             }
 
-            return offset;
+            var space = arguments[0];
+            var index = (int)arguments[1];
+            var targetTransforms = targets.Cast<Transform>().OrderBy(w => w.GetSiblingIndex()).ToList();
+            var attribute = variables.First(w => w.Item1 == "__attribute").Item2.AsT2 as string;
+            var @default = variables.First(w => w.Item1 == "this").Item2.AsT1;
+            if (targetTransforms.Count == 0)
+                return @default;
+
+            for (var i = index - 1; i <= index; i++)
+            {
+                if (i < 0)
+                    continue;
+
+                var transform = targetTransforms[i];
+                transform.gameObject.AddComponent<CalculateBounds>().Evaluate();
+            }
+
+            if (index == 0)
+            {
+                var c = GetAttributedValue(targetTransforms[0].GetComponent<CalculateBounds>().Size, attribute);
+                CleanupComponents(targetTransforms[index]);
+
+                return c * 0.5f;
+            }
+
+            var previousTransform = GetAttributedValue(targetTransforms[index - 1].localPosition, attribute);
+            var offsetA = GetAttributedValue(targetTransforms[index - 1].GetComponent<CalculateBounds>().Size, attribute);
+            var offsetB = GetAttributedValue(targetTransforms[index].GetComponent<CalculateBounds>().Size, attribute);
+            var offsetC = space;
+
+            CleanupComponents(targetTransforms[index - 1]);
+            CleanupComponents(targetTransforms[index]);
+
+            return previousTransform + offsetA + offsetB + offsetC;
+        }
+
+        private float CenterImpl(float[] arguments, List<(string, Union<float, object>)> variables)
+        {
+            Vector3 GetTargetBounds(GameObject go)
+            {
+                var bounds = go.AddComponent<CalculateBounds>();
+                bounds.Evaluate();
+                DestroyImmediate(bounds);
+
+                return bounds.Size;
+            }
+
+            var attribute = variables.First(w => w.Item1 == "__attribute").Item2.AsT2 as string;
+            var @default = variables.First(w => w.Item1 == "this").Item2.AsT1;
+            if (_immutableTransforms.Length == 0)
+                return @default;
+
+            var minTransform = _immutableTransforms.MinBy(w => GetAttributedValue(w.LocalPosition, attribute)).First();
+            var maxTransform = _immutableTransforms.MaxBy(w => GetAttributedValue(w.LocalPosition, attribute)).First();
+
+            var minBounds = GetTargetBounds(minTransform.GameObject) * GetAttributedValue(minTransform.LocalScale, attribute);
+            var maxBounds = GetTargetBounds(maxTransform.GameObject) * GetAttributedValue(maxTransform.LocalScale, attribute);
+
+            var min = GetAttributedValue(minTransform.LocalPosition, attribute) - GetAttributedValue(minBounds, attribute) / 2;
+            var max = GetAttributedValue(maxTransform.LocalPosition, attribute) + GetAttributedValue(maxBounds, attribute) / 2;
+            var center = min + (max - min) / 2;
+            var diff = arguments[0] - center;
+
+            return GetAttributedValue(_immutableTransforms[(int)arguments[1]].LocalPosition, attribute) + diff;
         }
     }
 }
+#endif

@@ -3,6 +3,8 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  *------------------------------------------------------------------------------------------*/
 
+#if UNITY_EDITOR
+
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -121,23 +123,23 @@ namespace NatsunekoLaboratory.EnhancedTransformEditor
                                 break;
 
                             case ')':
-                            {
-                                var k = stack.ToArray().Select((w, i) => (Value: w, Index: i)).First(w => w.Value is ParenthesesExpression e && !e.IsEnd).Index;
-                                var s = new Stack<Expression>();
-                                for (var j = 0; j <= k; j++)
                                 {
-                                    var expr = stack.Pop();
-                                    if (expr is ParenthesesExpression)
-                                        continue;
+                                    var k = stack.ToArray().Select((w, i) => (Value: w, Index: i)).First(w => w.Value is ParenthesesExpression e && !e.IsEnd).Index;
+                                    var s = new Stack<Expression>();
+                                    for (var j = 0; j <= k; j++)
+                                    {
+                                        var expr = stack.Pop();
+                                        if (expr is ParenthesesExpression)
+                                            continue;
 
-                                    s.Push(expr);
+                                        s.Push(expr);
+                                    }
+
+                                    while (s.Count > 0)
+                                        buffer.Enqueue(s.Pop());
+
+                                    break;
                                 }
-
-                                while (s.Count > 0)
-                                    buffer.Enqueue(s.Pop());
-
-                                break;
-                            }
 
                             default:
                                 if ('0' <= c && c <= '9')
@@ -644,3 +646,5 @@ namespace NatsunekoLaboratory.EnhancedTransformEditor
         }
     }
 }
+
+#endif

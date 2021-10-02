@@ -1,9 +1,7 @@
 {
     "name": "NatsunekoLaboratory.EnhancedTransformEditor",
     "references": [],
-    "includePlatforms": [
-        "Editor"
-    ],
+    "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
     "overrideReferences": false,

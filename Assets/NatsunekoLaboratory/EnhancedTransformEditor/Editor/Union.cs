@@ -3,6 +3,8 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  *------------------------------------------------------------------------------------------*/
 
+#if UNITY_EDITOR
+
 using System;
 
 namespace NatsunekoLaboratory.EnhancedTransformEditor
@@ -35,3 +37,5 @@ namespace NatsunekoLaboratory.EnhancedTransformEditor
         public static implicit operator Union<T1, T2>(T2 t) => new Union<T1, T2>(t);
     }
 }
+
+#endif

@@ -5,22 +5,25 @@
 
 #if UNITY_EDITOR
 
+using UnityEngine;
+
 namespace NatsunekoLaboratory.EnhancedTransformEditor
 {
-    internal class Vector3<T>
+    internal class IsolatedTransform
     {
-        public T X { get; set; }
+        public Vector3 LocalPosition { get; set; }
 
-        public T Y { get; set; }
+        public Vector3 WorldPosition { get; set; }
 
-        public T Z { get; set; }
+        public Quaternion LocalRotation { get; set; }
 
-        public Vector3(T x, T y, T z)
-        {
-            X = x;
-            Y = y;
-            Z = z;
-        }
+        public Quaternion WorldRotation { get; set; }
+
+        public Vector3 LocalScale { get; set; }
+
+        public Vector3 WorldScale { get; set; }
+
+        public GameObject GameObject { get; set; }
     }
 }
 
