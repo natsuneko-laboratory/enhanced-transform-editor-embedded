@@ -15,13 +15,23 @@ This class is able to understand the following formulas and functions. It can al
 * Utility Functions
   * `space_between`, `center`, and others...
 
-
 ## Functions
 
-### `space_between`
+In the Enhanced Transform Editor, you can use many of the math functions contained in the `Mathf` class.
+If there is a function you are missing, please feel free to contact me.
+
+
+## Extra Functions
+
+Extra Functions are not implemented as mathematical functions, but are functions that perform some processing. Many functions take `index` as an input value.
+
+### `space_between(float, float)`
 
 The `space_between` function places the objects at equal intervals.
 This is used when you want to even out the space between objects.
+The first argument is the space between each object, and the second argument is the `index` which indicates what object it is.
 
-* Signature : `space_between(float space, float index)`  
-* Usage: `space_between(0.5, index)`
+
+### `center(float, float)`
+
+The `center` function moves the Transform so that it is centered at the position specified in the first argument for the currently selected element.
