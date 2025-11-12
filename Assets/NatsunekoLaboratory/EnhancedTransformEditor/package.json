@@ -1,0 +1,21 @@
+{
+  "name": "cat.natsuneko.enhanced-transform-editor",
+  "version": "1.0.0",
+  "description": "Unity Editor Extension enhances the transform editor that supports math functions, variables, constants, and custom functions.",
+  "displayName": "Enhanced Transform Editor",
+  "unity": "2019.4",
+  "dependencies": {},
+  "documentationUrl": "https://docs.natsuneko.cat/en-us/enhanced-transform-editor/",
+  "licensesUrl": "https://github.com/natsuneko-laboratory/enhanced-transform-editor/blob/main/LICENSE",
+  "vpmDependencies": {},
+  "legacyFolders": {
+    "Assets\\NatsunekoLaboratory\\EnhancedTransformEditor": "5a1cb0de77ea6e74ea8f8666d485dc0c"
+  },
+  "license": "MIT",
+  "keywords": [],
+  "author": {
+    "name": "Natsuneko",
+    "email": "me@natsuneko.cat",
+    "url": "https://natsuneko.cat"
+  }
+}
